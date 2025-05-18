@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ValueMate - Object Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        #video {
+            width: 100%;
+            border-radius: 8px;
+        }
+        #canvas {
+            display: none;
+        }
+        .notification {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">ValueMate</h1>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="mb-4 hidden notification"></div>
+
+        <!-- Camera Section -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div class="camera-container mb-4">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="startCamera" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Start Camera
+                </button>
+                <button id="captureButton" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" disabled>
+                    Capture and Detect
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="bg-white p-6 rounded-lg shadow-md hidden">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-2">Product Information</h2>
+                <div id="productInfo" class="bg-gray-100 p-4 rounded"></div>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-2">Search Query Used</h2>
+                <div id="searchQuery" class="bg-gray-100 p-4 rounded text-gray-700"></div>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-2">Median Price</h2>
+                <div id="medianPrice" class="text-2xl text-green-600 font-bold"></div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Similar Products</h2>
+                <div id="similarProducts" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startCamera = document.getElementById('startCamera');
+        const captureButton = document.getElementById('captureButton');
+        const results = document.getElementById('results');
+        const statusMessage = document.getElementById('statusMessage');
+        let stream = null;
+
+        function showStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = `mb-4 p-4 rounded notification ${
+                type === 'error' ? 'bg-red-100 text-red-700' :
+                type === 'success' ? 'bg-green-100 text-green-700' :
+                'bg-blue-100 text-blue-700'
+            }`;
+            statusMessage.classList.remove('hidden');
+            setTimeout(() => {
+                statusMessage.classList.add('opacity-0');
+                setTimeout(() => {
+                    statusMessage.classList.add('hidden');
+                    statusMessage.classList.remove('opacity-0');
+                }, 300);
+            }, 3000);
+        }
+
+        // Start camera
+        startCamera.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                video.srcObject = stream;
+                startCamera.disabled = true;
+                captureButton.disabled = false;
+                showStatus('Camera started successfully', 'success');
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                showStatus('Unable to access camera. Please check permissions.', 'error');
+            }
+        });
+
+        // Capture and detect
+        captureButton.addEventListener('click', async () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            try {
+                showStatus('Processing image...', 'info');
+                const imageData = canvas.toDataURL('image/jpeg');
+                const response = await fetch('/detect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus(data.error, 'error');
+                    return;
+                }
+
+                // Display results
+                results.classList.remove('hidden');
+
+                // Display product info
+                const productInfo = document.getElementById('productInfo');
+                productInfo.innerHTML = Object.entries(data.product_info)
+                    .map(([key, value]) => `
+                        <div class="mb-2">
+                            <span class="font-semibold capitalize">${key}:</span> ${value || 'Not detected'}
+                        </div>
+                    `).join('');
+
+                // Display search query
+                const searchQuery = document.getElementById('searchQuery');
+                searchQuery.textContent = data.search_query;
+
+                // Display median price
+                const medianPrice = document.getElementById('medianPrice');
+                medianPrice.textContent = data.median_price ? 
+                    `$${data.median_price.toFixed(2)}` : 'Price not available';
+
+                // Display similar products
+                const similarProducts = document.getElementById('similarProducts');
+                similarProducts.innerHTML = data.similar_products
+                    .map(product => `
+                        <div class="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+                            <h3 class="font-semibold mb-2">${product.title}</h3>
+                            <div class="text-green-600 mb-2">$${product.price.toFixed(2)}</div>
+                            <a href="${product.link}" target="_blank" 
+                               class="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                View Details
+                            </a>
+                        </div>
+                    `).join('');
+
+                showStatus('Analysis complete', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('An error occurred while processing the image', 'error');
+            }
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
