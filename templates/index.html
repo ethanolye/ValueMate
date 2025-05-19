@@ -3,125 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ValueMate - Object Detection</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>ValueMate - Smart Price Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .camera-container {
-            position: relative;
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            transition: transform 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+        }
+        .loading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 640px;
-            margin: 0 auto;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
-        #video {
-            width: 100%;
-            border-radius: 8px;
+        
+        .loader-content {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        #canvas {
-            display: none;
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
-        .notification {
-            transition: opacity 0.3s ease-in-out;
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-8">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8 text-center">ValueMate</h1>
-
-        <!-- Status Messages -->
-        <div id="statusMessage" class="mb-4 hidden notification"></div>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-50 min-h-screen">
+    <div id="loader" class="loader hidden">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <p id="loading-text" class="text-gray-600">Processing your image...</p>
+        </div>
+    </div>
+    <div class="max-w-5xl mx-auto p-6">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">ValueMate</h1>
+            <p class="text-gray-600">Smart Price Comparison Tool</p>
+        </header>
 
         <!-- Camera Section -->
-        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-            <div class="camera-container mb-4">
-                <video id="video" autoplay playsinline></video>
-                <canvas id="canvas"></canvas>
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">Take a Photo</h2>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-600 mb-1">Select Camera</label>
+                <select id="cameraSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Loading cameras...</option>
+                </select>
+            </div>
+            <div class="aspect-video rounded-lg overflow-hidden bg-gray-100 mb-4">
+                <video id="video" class="w-full h-full object-cover" autoplay></video>
+                <canvas id="canvas" class="hidden"></canvas>
             </div>
             <div class="flex justify-center gap-4">
-                <button id="startCamera" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                    Start Camera
-                </button>
-                <button id="captureButton" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" disabled>
-                    Capture and Detect
+                <button id="captureButton" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                    Capture Image
                 </button>
             </div>
         </div>
 
         <!-- Results Section -->
-        <div id="results" class="bg-white p-6 rounded-lg shadow-md hidden">
-            <div class="mb-6">
-                <h2 class="text-xl font-semibold mb-2">Product Information</h2>
-                <div id="productInfo" class="bg-gray-100 p-4 rounded"></div>
+        <div id="results" class="hidden space-y-6">
+            <!-- Product Information Card -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Product Information</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Brand</label>
+                            <input type="text" id="brandInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Colors</label>
+                            <input type="text" id="colorsInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Category</label>
+                            <input type="text" id="categoryInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">Description</label>
+                            <textarea id="descriptionInput" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <button id="updateButton" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                    Update Search
+                </button>
             </div>
 
-            <div class="mb-6">
-                <h2 class="text-xl font-semibold mb-2">Search Query Used</h2>
-                <div id="searchQuery" class="bg-gray-100 p-4 rounded text-gray-700"></div>
+            <!-- Price Analysis Card -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Price Analysis</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-1">Average Price</p>
+                        <p id="averagePrice" class="text-3xl font-bold text-blue-600">$0.00</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-1">Search Query</p>
+                        <p id="searchQuery" class="text-gray-800 font-medium"></p>
+                    </div>
+                </div>
             </div>
 
-            <div class="mb-6">
-                <h2 class="text-xl font-semibold mb-2">Median Price</h2>
-                <div id="medianPrice" class="text-2xl text-green-600 font-bold"></div>
+            <!-- Similar Products Card -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Similar Products</h2>
+                <div id="similarProducts" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Products will be inserted here -->
+                </div>
             </div>
+        </div>
 
-            <div>
-                <h2 class="text-xl font-semibold mb-4">Similar Products</h2>
-                <div id="similarProducts" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-            </div>
+        <!-- Status Message -->
+        <div id="status" class="fixed bottom-4 right-4 hidden">
+            <div class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg"></div>
         </div>
     </div>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const startCamera = document.getElementById('startCamera');
         const captureButton = document.getElementById('captureButton');
         const results = document.getElementById('results');
-        const statusMessage = document.getElementById('statusMessage');
+        const statusMessage = document.getElementById('status');
+        const cameraSelect = document.getElementById('cameraSelect');
         let stream = null;
+        let currentStream = null;
 
         function showStatus(message, type = 'info') {
-            statusMessage.textContent = message;
-            statusMessage.className = `mb-4 p-4 rounded notification ${
-                type === 'error' ? 'bg-red-100 text-red-700' :
-                type === 'success' ? 'bg-green-100 text-green-700' :
-                'bg-blue-100 text-blue-700'
-            }`;
-            statusMessage.classList.remove('hidden');
-            setTimeout(() => {
-                statusMessage.classList.add('opacity-0');
-                setTimeout(() => {
-                    statusMessage.classList.add('hidden');
-                    statusMessage.classList.remove('opacity-0');
-                }, 300);
-            }, 3000);
+            const status = document.getElementById('status');
+            const statusContent = status.querySelector('div');
+            
+            statusContent.textContent = message;
+            statusContent.className = `px-6 py-3 rounded-lg shadow-lg ${
+                type === 'error' ? 'bg-red-600' : 
+                type === 'success' ? 'bg-green-600' : 
+                'bg-gray-800'
+            } text-white`;
+            
+            status.classList.remove('hidden');
+            setTimeout(() => status.classList.add('hidden'), 3000);
         }
 
-        // Start camera
-        startCamera.addEventListener('click', async () => {
+        // Initialize camera automatically
+        document.addEventListener('DOMContentLoaded', async () => {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
-                });
-                video.srcObject = stream;
-                startCamera.disabled = true;
-                captureButton.disabled = false;
-                showStatus('Camera started successfully', 'success');
+                // First request camera permissions
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop this initial stream
+                
+                // Now we can enumerate devices with labels
+                await populateCameraList();
+                showStatus('Camera initialized', 'success');
             } catch (err) {
-                console.error('Error accessing camera:', err);
-                showStatus('Unable to access camera. Please check permissions.', 'error');
+                console.error('Error initializing camera:', err);
+                showStatus('Could not access camera', 'error');
             }
         });
 
-        // Capture and detect
+        // Update the capture button event listener
         captureButton.addEventListener('click', async () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
+            const loader = document.getElementById('loader');
+            const loadingText = document.getElementById('loading-text');
             
             try {
-                showStatus('Processing image...', 'info');
+                // Show loader
+                loader.classList.remove('hidden');
+                loadingText.textContent = 'Capturing image...';
+                
+                // Capture image
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                loadingText.textContent = 'Analyzing image...';
                 const imageData = canvas.toDataURL('image/jpeg');
+                
+                // Send to server
                 const response = await fetch('/detect', {
                     method: 'POST',
                     headers: {
@@ -130,59 +227,179 @@
                     body: JSON.stringify({ image: imageData })
                 });
 
-                const data = await response.json();
-                
-                if (data.error) {
-                    showStatus(data.error, 'error');
-                    return;
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
                 }
 
-                // Display results
+                loadingText.textContent = 'Processing results...';
+                const data = await response.json();
+                
+                // Update results
+                updateResults(data);
                 results.classList.remove('hidden');
-
-                // Display product info
-                const productInfo = document.getElementById('productInfo');
-                productInfo.innerHTML = Object.entries(data.product_info)
-                    .map(([key, value]) => `
-                        <div class="mb-2">
-                            <span class="font-semibold capitalize">${key}:</span> ${value || 'Not detected'}
-                        </div>
-                    `).join('');
-
-                // Display search query
-                const searchQuery = document.getElementById('searchQuery');
-                searchQuery.textContent = data.search_query;
-
-                // Display median price
-                const medianPrice = document.getElementById('medianPrice');
-                medianPrice.textContent = data.median_price ? 
-                    `$${data.median_price.toFixed(2)}` : 'Price not available';
-
-                // Display similar products
-                const similarProducts = document.getElementById('similarProducts');
-                similarProducts.innerHTML = data.similar_products
-                    .map(product => `
-                        <div class="border rounded-lg p-4 hover:shadow-lg transition-shadow">
-                            <h3 class="font-semibold mb-2">${product.title}</h3>
-                            <div class="text-green-600 mb-2">$${product.price.toFixed(2)}</div>
-                            <a href="${product.link}" target="_blank" 
-                               class="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                                View Details
-                            </a>
-                        </div>
-                    `).join('');
-
                 showStatus('Analysis complete', 'success');
+                
             } catch (error) {
                 console.error('Error:', error);
                 showStatus('An error occurred while processing the image', 'error');
+            } finally {
+                // Hide loader
+                loader.classList.add('hidden');
             }
         });
 
         // Clean up on page unload
         window.addEventListener('beforeunload', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        // Add this new function to populate the form
+        function populateForm(productInfo) {
+            document.getElementById('brandInput').value = productInfo.brand || '';
+            document.getElementById('colorsInput').value = productInfo.colors || '';
+            document.getElementById('categoryInput').value = productInfo.category || '';
+            document.getElementById('descriptionInput').value = productInfo.description || '';
+        }
+
+        // Add this new function to update the results display
+        function updateResults(data) {
+            // Update product info display
+            populateForm(data.product_info);
+
+            // Update search query
+            document.getElementById('searchQuery').textContent = data.search_query;
+
+            // Update price information
+            document.getElementById('averagePrice').textContent = 
+                data.average_price ? `$${data.average_price.toFixed(2)}` : 'N/A';
+
+            // Update similar products with modified grid layout
+            const similarProducts = document.getElementById('similarProducts');
+            if (data.similar_products && data.similar_products.length > 0) {
+                similarProducts.innerHTML = data.similar_products
+                    .map(product => `
+                        <div class="card bg-gray-50 rounded-lg p-4 hover:shadow-md flex flex-col justify-between">
+                            <div>
+                                <h3 class="font-semibold text-gray-800 mb-2 line-clamp-2 h-12">${product.title}</h3>
+                                <p class="text-blue-600 font-medium mb-3">
+                                    ${product.average_price ? `$${product.average_price.toFixed(2)}` : 'Price N/A'}
+                                </p>
+                            </div>
+                            <a href="${product.link}" target="_blank" 
+                               class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors text-center">
+                                View Details
+                            </a>
+                        </div>
+                    `).join('');
+            } else {
+                similarProducts.innerHTML = `
+                    <div class="col-span-full text-center py-8 text-gray-500">
+                        No similar products found
+                    </div>
+                `;
+            }
+
+            // Show results section
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        // Update button click handler
+        document.getElementById('updateButton').addEventListener('click', async () => {
+            const loader = document.getElementById('loader');
+            const loadingText = document.getElementById('loading-text');
+            
+            try {
+                // Show loader
+                loader.classList.remove('hidden');
+                loadingText.textContent = 'Updating search...';
+                
+                const updatedInfo = {
+                    brand: document.getElementById('brandInput').value,
+                    colors: document.getElementById('colorsInput').value,
+                    category: document.getElementById('categoryInput').value,
+                    description: document.getElementById('descriptionInput').value
+                };
+
+                const response = await fetch('/update-product', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedInfo)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                loadingText.textContent = 'Processing results...';
+                const data = await response.json();
+                updateResults(data);
+                showStatus('Search updated successfully', 'success');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Failed to update search', 'error');
+            } finally {
+                // Hide loader
+                loader.classList.add('hidden');
+            }
+        });
+
+        // Add this new function to handle camera switching
+        async function initializeCamera(deviceId = '') {
+            try {
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: {
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                return true;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                showStatus('Could not access camera', 'error');
+                return false;
+            }
+        }
+
+        // Add this function to populate camera list
+        async function populateCameraList() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = videoDevices.length === 0 
+                    ? '<option value="">No cameras found</option>'
+                    : videoDevices.map(device => 
+                        `<option value="${device.deviceId}">${device.label || `Camera ${videoDevices.indexOf(device) + 1}`}</option>`
+                    ).join('');
+                
+                // If we have cameras, initialize the first one
+                if (videoDevices.length > 0) {
+                    await initializeCamera(videoDevices[0].deviceId);
+                }
+            } catch (err) {
+                console.error('Error getting camera list:', err);
+                cameraSelect.innerHTML = '<option value="">Error loading cameras</option>';
+            }
+        }
+
+        // Add camera selection change handler
+        cameraSelect.addEventListener('change', async () => {
+            const deviceId = cameraSelect.value;
+            if (deviceId) {
+                await initializeCamera(deviceId);
             }
         });
     </script>

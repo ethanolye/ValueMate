@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ValueMate Debug View</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .raw-html {
+            background: #f0f0f0;
+            padding: 15px;
+            overflow-x: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 12px;
+            border-left: 4px solid #2196F3;
+        }
+        .toggle-button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        /* ... existing styles ... */
+    </style>
+</head>
+<body>
+    <!-- ... existing sections ... -->
+
+    <div class="section">
+        <h2>Similar Products (Top 5) with Raw HTML</h2>
+        {% for product in debug_data.similar_products %}
+        <div class="product-item">
+            <h3>{{ product.title }}</h3>
+            <p>Price: ${{ "%.2f"|format(product.price) }}</p>
+            <p>Raw Price Data: {{ product.individual_prices }}</p>
+            <a href="{{ product.link }}" target="_blank">View Product</a>
+            
+            <button class="toggle-button" onclick="toggleHTML({{ loop.index }})">
+                Toggle Raw HTML
+            </button>
+            <div id="raw-html-{{ loop.index }}" class="raw-html hidden">
+                {{ product.raw_html }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function toggleHTML(index) {
+            const element = document.getElementById(`raw-html-${index}`);
+            element.classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
