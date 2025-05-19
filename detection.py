@@ -20,7 +20,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Configure Gemini API only
-generativeai.configure(api_key='AIzaSyA1nE9p0aD0I7wBy4hzE5JkDwRdF-X2T2Q')
+generativeai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 model = generativeai.GenerativeModel('gemini-2.0-flash')
 
 def get_product_title_from_gemini(html_content):
